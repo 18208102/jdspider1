@@ -1,18 +1,22 @@
+import csv
 import urllib
-from urllib import response
 import json
 import requests
-from pandas import DataFrame;
 from bs4 import BeautifulSoup
 from lxml import etree
 import re
 
+
+
+
 #选择页码进行爬取
-def JDSpiderPage(url):
-    for page in range(1,3):
-        fullurl=url+"&page="+str(page*2-1)
+def JDSpiderPage():
+    for page in range(197,201):
+        url = "https://search.jd.com/Search?keyword=%E7%A9%BA%E8%B0%83&stop=1&qrst=1&vt=1&click=2&page=" + str(
+            page) + "&s=" + str(1 + (page - 1) * 30) + "&click=0&scrolling=y"
         print("正在爬取第 {} 页".format(page))
-        load_page(fullurl)
+        load_page(url)
+
 
 #读取查询页面
 def load_page(url):
@@ -36,12 +40,34 @@ def load_page(url):
             continue
     for j in content_list:
         new_url='http:'+j#完整url
+        #获取商品id
+        split_url = j.replace('//item.jd.com/', '')
+        # 第一次替换后，返回的结果是 123456.html
+        split_url = split_url.replace('.html', '')
+        # 第二次替换后，返回结果就是123456了
+        #print(split_url)
+        comment=get_goods_comment(split_url, headers)
+        print(comment)
         #print(new_url)
-        load_link_page(new_url,headers)
-        load_link_page_mess(new_url,headers)
-        get_price(new_url)
+        sum=load_link_page(new_url,headers)
+        #print(sum)
 
-#获取信息 爬取商品标题和商品空调品牌
+        price=get_price(new_url)
+        print(price)
+        mess=load_link_page_mess(new_url,headers)
+        #print(mess)
+        print("----------------------------")
+        #get_comment(new_url,headers)
+        with open("jd_air_condition.csv", "a", newline="",encoding='utf-8') as csvfile:
+             rows = (sum,price,mess,comment)
+             writer = csv.writer(csvfile)
+             writer.writerow(rows)
+
+
+
+
+
+#获取信息 爬取商品标题和店家名称
 def load_link_page(url,headers):
     #添加请求
     request = urllib.request.Request(url,headers=headers)
@@ -55,17 +81,14 @@ def load_link_page(url,headers):
     #air_price=content.xpath('//div[@class="dd"]/span[@class="p-price"]/span/text()')
     # 空调品牌
     brand = content.xpath('//div[@class="p-parameter"]/ul[@id="parameter-brand"]/li/@title')
-    #空调名称
-    #air_name=content.xpath('//div[@class="p-parameter"]/ul[@id="parameter2 p-parameter-list"]/li/@title/text()')
-    #累计评价
-    #buy_judge=content.xpath('//div[@class="comment-count item fl"]/a/text()')
-    #选购指数
-    #buy_index=content.xpath('//div[@class="buy-rate item fl hide"]/a/text()')
+    #店家名称
+    shop_name=content.xpath('//div[@class="name"]/a/@title')
+    sum = dict()
+    sum['air_title'] = air_title
+    sum['shop_name'] = shop_name
+    return sum
 
-    #评价数
-    buy_num=content.xpath('//div[@class="tab-main small"]/ul/li[1]/a/em')
-    print(air_title, brand,buy_num)
-
+#爬取商品参数
 def load_link_page_mess(url,headers):
     # 添加请求
     request = urllib.request.Request(url, headers=headers)
@@ -77,13 +100,57 @@ def load_link_page_mess(url,headers):
 
     # data = DataFrame(columns=["参数", "值"])  # 定义一个二元的DataFrame
     uls = divSoup.find_all("ul")
-
+    list = []
     for ul in uls:
         lis = ul.find_all("li")
         for i in range(len(lis)):
-            f = lis[i].getText()
-            print(f)
+            f=lis[i].getText()
+            # print(f)
+            list.append(f)
+    return list
+            #print(f)
+            #return list
 
+
+# 根据商品id获取商品的评论数量统计信息
+def get_goods_comment(goods_id,headers):
+    COMMENTS_PATH='https://club.jd.com/comment/productCommentSummaries.action?referenceIds={}'
+    url = COMMENTS_PATH.format(goods_id)
+    resp_text = requests.get(url=url, headers=headers).text
+    comment_json = json.loads(resp_text)
+    # print(comment_json)
+    comments_count = comment_json['CommentsCount'][0]
+    # 评论总数
+    comment_count = comments_count['CommentCount']
+    # 默认好评数
+    default_good_count = comments_count['DefaultGoodCount']
+    # 好评数
+    good_count = comments_count['GoodCount']
+    # 普通评价数
+    general_count = comments_count['GeneralCount']
+    # 差评数
+    poor_count = comments_count['PoorCount']
+    # 追评数
+    after_count = comments_count['AfterCount']
+    # 好评率
+    good_rate = comments_count['GoodRate']
+
+    #print(comment_count,default_good_count,good_count,general_count,poor_count,after_count,good_rate)
+
+    comment_info = dict()
+    comment_info['comment_count'] = comment_count
+    comment_info['default_good_count'] = default_good_count
+    comment_info['good_count'] = good_count
+    comment_info['general_count'] = general_count
+    comment_info['poor_count'] = poor_count
+    comment_info['after_count'] = after_count
+    comment_info['good_rate'] = good_rate
+
+    return comment_info
+
+
+
+#获得商品价格
 def get_price(url):
     temp = url.split('/')[-1]
     sid = temp.split('.')[0]
@@ -99,9 +166,11 @@ def get_price(url):
     if price == "-1.00":
         return "商品已售完"
     else:
-        print(price)
+        return price
+
+
 
 
 if __name__ == '__main__':
-    url='https://search.jd.com/Search?keyword=%E7%A9%BA%E8%B0%83&qrst=1&wq=%E7%A9%BA%E8%B0%83&stock=1'
-    JDSpiderPage(url)
+    JDSpiderPage()
+
