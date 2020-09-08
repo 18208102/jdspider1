@@ -11,7 +11,7 @@ import re
 
 #选择页码进行爬取
 def JDSpiderPage():
-    for page in range(197,201):
+    for page in range(130,161):
         url = "https://search.jd.com/Search?keyword=%E7%A9%BA%E8%B0%83&stop=1&qrst=1&vt=1&click=2&page=" + str(
             page) + "&s=" + str(1 + (page - 1) * 30) + "&click=0&scrolling=y"
         print("正在爬取第 {} 页".format(page))
@@ -40,17 +40,17 @@ def load_page(url):
             continue
     for j in content_list:
         new_url='http:'+j#完整url
-        #获取商品id
+        #获取商品id3q
         split_url = j.replace('//item.jd.com/', '')
         # 第一次替换后，返回的结果是 123456.html
         split_url = split_url.replace('.html', '')
         # 第二次替换后，返回结果就是123456了
         #print(split_url)
         comment=get_goods_comment(split_url, headers)
-        print(comment)
+        # print(comment)
         #print(new_url)
         sum=load_link_page(new_url,headers)
-        #print(sum)
+        # print(sum)
 
         price=get_price(new_url)
         print(price)
@@ -58,10 +58,11 @@ def load_page(url):
         #print(mess)
         print("----------------------------")
         #get_comment(new_url,headers)
-        with open("jd_air_condition.csv", "a", newline="",encoding='utf-8') as csvfile:
+        with open("jd_air_condition_3.csv", "a", newline="",encoding='utf-8-sig') as csvfile:
              rows = (sum,price,mess,comment)
              writer = csv.writer(csvfile)
              writer.writerow(rows)
+
 
 
 
@@ -85,7 +86,7 @@ def load_link_page(url,headers):
     shop_name=content.xpath('//div[@class="name"]/a/@title')
     sum = dict()
     sum['air_title'] = air_title
-    sum['shop_name'] = shop_name
+    # sum['shop_name'] = shop_name
     return sum
 
 #爬取商品参数
